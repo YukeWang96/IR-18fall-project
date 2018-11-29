@@ -72,7 +72,7 @@ def get_min_interval_between_list(temp_list_1, temp_list_2):
 
 def get_min_interval(w_loc):
 
-    keys = w_loc.keys()
+    keys = [k for k in w_loc.keys()]
     global_minimum = 99999
     
     for i in range(0, len(keys) - 1):
@@ -116,8 +116,6 @@ def main(query_set, doc_set, min_dist_global=[]):
         print("qry: " + str(counter)) 
         counter += 1
 
-
-
 if __name__ == "__main__":
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer(r'\w+')
@@ -125,7 +123,7 @@ if __name__ == "__main__":
     fw_min = open("min_dist.log", "w")
     # fw_max = open("max_dist.log", "w")
 
-    doc_dir = "docs" # "docs"
+    doc_dir = "docs" # "test_small" # "docs"
     qry_file = "title-queries.301-450"
 
     qry_set = query_process(qry_file)
