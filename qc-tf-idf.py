@@ -15,8 +15,7 @@ def single_query_docs_tf_idf(query, corpus, dictionary, tf_idf):
     query_doc_tf_idf = tf_idf[query_doc_bow]
     # print(query_doc_tf_idf)
     sims = gensim.similarities.Similarity('.', tf_idf[corpus], num_features=len(dictionary))
-    # print(sims)
-    # print(type(sims))
+
     return sims[query_doc_tf_idf]
 
 
@@ -34,9 +33,13 @@ def docs_process(data_file, title_s, body_s):
                 doc_title = tmp_doc[0].replace("Title:", "").replace("\n", "")
                 titles.append(doc_title)
             
-            if len(tmp_doc) > 2:
+            if len(tmp_doc) >= 2:
                 if body_s:
                     doc_body = tmp_doc[1].replace("\n", "")
+                    bodies.append(doc_body)
+            else:
+                if body_s:
+                    doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
                     bodies.append(doc_body)
 
             counter +=1
@@ -49,10 +52,14 @@ def docs_process(data_file, title_s, body_s):
                 doc_title = tmp_doc[0].replace("Title:", "").replace("\n", "")
                 titles.append(doc_title)
 
-        if len(tmp_doc) > 2:    
+        if len(tmp_doc) >= 2:    
             if body_s:
                     doc_body = tmp_doc[1].replace("\n", "")
                     bodies.append(doc_body)
+        else:
+            if body_s:
+                doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
+                bodies.append(doc_body)
 
     return titles, bodies
 
@@ -87,14 +94,7 @@ def main(query_set, corpus, dictionary, tf_idf):
     return result_set
 
 if __name__ == "__main__":
-    # raw_documents = [
-    #     "I'm taking the show on the road.",
-    #     "My socks are a force multiplier.",
-    #     "I am the barber who cuts everyone's hair who doesn't cut their own.",
-    #     "Legend has it that the mind is a mad monkey.",
-    #     "I make my own fun."
-    # ]
-    #
+
     tokenizer = RegexpTokenizer(r'\w+')
     nltk.download('punkt')
     nltk.download('stopwords')
@@ -109,10 +109,6 @@ if __name__ == "__main__":
     
     qry_set = query_process(qry_file)
     titles, docs = docs_process(doc_dir, title_s=True, body_s=False)
-
-    # print(qry_set)
-    # print(titles)
-    # print(docs)
 
     if search_in_title:
         corpus, dictionary, tf_idf = doc_process_tf_idf(titles)
