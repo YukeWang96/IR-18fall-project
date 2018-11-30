@@ -11,8 +11,6 @@ from nltk.tokenize import word_tokenize
 import warnings
 warnings.filterwarnings("ignore")
 
-model = gensim.models.KeyedVectors.load_word2vec_format('/home/dheeraj/Downloads/GoogleNews-vectors-negative300.bin.gz', binary=True, limit=500000)
-model.similarity(w1='clean',w2='neat')
 
 #sys.exit()
 
@@ -44,17 +42,20 @@ def get_hist(query,body,flip_probability=0):
     body_hist = body_hist/sum(body_hist) # normalize histogram
     return body_hist
 
-
+stop_words = set(stopwords.words('english'))
 # removes all non-alphabets and convert to lower case
 # and remove stop words
 def strip_special_chars(line):
+    global stop_words
     u = line.strip()
     u = u.replace('-', ' ')
     u = re.sub(r'[^a-zA-Z ]+', '', u)
     u = u.lower()
 
-    stop_words = set(stopwords.words('english'))
-    word_tokens = word_tokenize(u) # compare the results with the manual splitter
+    
+    ## below line is really really slow
+#    word_tokens = word_tokenize(u) # compare the results with the manual splitter
+    word_tokens = u.split()
     filtered_sentence = [w for w in word_tokens if not w in stop_words]
     u = ' '.join(filtered_sentence)
     
@@ -96,33 +97,28 @@ def get_qrels_map():
 
 def parse_doc(doc):
     lines = []
-    with open('test-data/docs/'+doc,'r') as f:
-    #with open('test-data/example/'+doc,'r') as f:
-        lines = f.readlines()
+
+    fp = open('test-data/docs/'+doc,'r')
+    tmp_doc = fp.read().split("Body:")
     title_p = []
     body_p = []
-    ctr = 0
-
-    for line in lines:
-        if line.find('Body:') >= 0:
-            break;
-        ctr = ctr + 1
-        title_p.append(line)
-
-    body_p.extend(lines[ctr:])
+    title_p.append(tmp_doc[0].replace("Title:", "").replace("\n", ""))
+    try:
+        body_p.append(tmp_doc[1].replace("\n", ""))
+    except:
+        body_p = [] # no body
 
     title = []
     body = []
 
+
     for x  in title_p:
-        u = x.replace('Title:','')
-        u = strip_special_chars(u)
+        u = strip_special_chars(x)
         if re.match(r'.*[a-z]+.*', u):
             title.append(u)
 
     for x  in body_p:
-        u = x.replace('Body:','')
-        u = strip_special_chars(u)
+        u = strip_special_chars(x)
         if re.match(r'.*[a-z]+.*', u): # filter empty lines
             body.append(u)
             
@@ -137,7 +133,8 @@ def write_body_features(body_features,body_hist):
     
 # raw_docs can be titles or bodies
 def doc_process_tf_idf(raw_docs):
-    gen_docs = [[w.lower() for w in word_tokenize(text)] for text in raw_docs]
+#    gen_docs = [[w.lower() for w in word_tokenize(text)] for text in raw_docs]
+    gen_docs = [w.split() for w in raw_docs]
     dictionary = gensim.corpora.Dictionary(gen_docs)
     corpus = [dictionary.doc2bow(gen_doc) for gen_doc in gen_docs]
     tf_idf = gensim.models.TfidfModel(corpus)
@@ -169,7 +166,12 @@ body_set = {}
 
 dir = os.listdir('test-data/docs')
 #dir = os.listdir('test-data/example')
+fctr = 0
 for fname in dir:
+    fctr = fctr + 1
+    p = round(fctr*100/337719.0, 2)
+    #print('processing '+str(fctr)+'/337719 -- '+str(p)+'%', end='\r')
+    print('processing '+str(fctr))
     title,body = parse_doc(fname)
     title_set[fname] = title
     body_set[fname] = body
@@ -198,22 +200,31 @@ for x in body_set:
         arg_b.append("")
     else:
         arg_b.append(body_set[x][0])
-    
+print('end processing docs')
+
+print('corpus creation begins')        
 corpus_t, dictionary_t, tf_idf_t = doc_process_tf_idf(arg_t)
 corpus_b, dictionary_b, tf_idf_b = doc_process_tf_idf(arg_b)
+print('corpus creation ends')        
 
-print('end processing docs')
+arg_t.clear()
+arg_b.clear()
 
 #qid: tfidf values for each dcument wrt to the query as numpy array
 query_tf_idf_title = {}
 query_tf_idf_body = {}
 
+print('tf-idf calculation begins')
 for qid in queries:
     # need to build the query tf-idf matrix q:doc1,doc2,...
     query_tf_idf_title[qid] = single_query_docs_tf_idf(queries[qid],corpus_t,dictionary_t,tf_idf_t)*10
     query_tf_idf_body[qid] = single_query_docs_tf_idf(queries[qid],corpus_b,dictionary_b,tf_idf_b)*10
+print('tf-idf calculation ends')
 
 print('begin augmentation')
+
+model = gensim.models.KeyedVectors.load_word2vec_format('/home/dheeraj/Downloads/GoogleNews-vectors-negative300.bin.gz', binary=True, limit=500000)
+model.similarity(w1='clean',w2='neat')
 
 for key in qrels_map:
     for doc in qrels_map[key]:
