@@ -1,10 +1,10 @@
 # coding = "UTF-8"
 import os
 import pickle
+from operator import itemgetter
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
-
 
 def query_process(file_dir):
     fp = open(file_dir, "r")
@@ -123,15 +123,15 @@ def main(qry_set, doc_set, qd_dir, order_list):
     qd_dict_list = list(qd_dict.values())
     min_dist_global = []
 
-    for qr in query_set:
+    for qr in qry_set:
 
         qd_list = sorted(qd_dict_list[counter])
         qd_idx = [order_list.index(item) for item in qd_list]
 
-        tmp_min = distance(qr, list(itemgetter(*qd_idx)(doc_set))
+        tmp_min = distance(qr, list(itemgetter(*qd_idx)(doc_set)))
         min_dist_global.append(tmp_min)
         
-        print("qry: " + str(counter) + str(qr)) 
+        print("[" + str(counter) + "] " + str(qr)) 
         counter += 1
     
     return min_dist_global
@@ -153,15 +153,14 @@ if __name__ == "__main__":
 
     min_dist_global = []
 
-    min_dist_global = main(qry_set, docs, qd_dir, order_list)
+    min_dist_global = main(qry_set, docs, qd_dict, order_list)
 
     total_line = len(min_dist_global)
-    total_width = len(min_dist_global[0])
+    # total_width = len(min_dist_global[0])
 
     for iter in range(total_line):
-
         result = ""
-        for i in range(total_width):
+        for i in range(len(total_line[iter])):
             result += str(min_dist_global[iter][i]) + " "
         result += "\n"
         fw_min.write(result)

@@ -86,13 +86,13 @@ def main(query_set, qc_dict, order_list, process_title, process_body):
         if process_title:
             doc_bm25_title = doc_process_bm25(list(itemgetter(*qd_idx)(titles)))
             average_idf_title = sum(map(lambda k: float(doc_bm25_title.idf[k]), doc_bm25_title.idf.keys())) / len(doc_bm25_title.idf.keys())
-            tmp_score_title = doc_bm25.get_scores(query_tokenized, average_idf_title)
+            tmp_score_title = doc_bm25_title.get_scores(query_tokenized, average_idf_title)
             scores_title.append(tmp_score_title)
 
         if process_body:
             doc_bm25_body = doc_process_bm25(list(itemgetter(*qd_idx)(docs)))
             average_idf_body = sum(map(lambda k: float(doc_bm25_body.idf[k]), doc_bm25_body.idf.keys())) / len(doc_bm25_body.idf.keys())
-            tmp_score_body = doc_bm25.get_scores(query_tokenized, average_idf_body)
+            tmp_score_body = doc_bm25_body.get_scores(query_tokenized, average_idf_body)
             scores_body.append(tmp_score_body)
 
         print("[" + str(counter) + "]: "  + str(query_tokenized))
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     final_result_title, final_result_body = main(qry_set, qd_dict, order_list, process_title, process_body)
 
-    if generate_title and generate_body:
+    if process_title and process_body:
 
         for qf in final_result_title:
             result = ""
