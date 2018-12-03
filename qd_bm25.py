@@ -74,6 +74,8 @@ def doc_process_bm25(raw_docs):
 
 def main(query_set, qc_dict, order_list, process_title, process_body):
     counter = 0
+    total_size_title = 0
+    total_size_body = 0
     scores_title = []
     scores_body = []
     qd_dict_list = list(qd_dict.values())
@@ -81,23 +83,32 @@ def main(query_set, qc_dict, order_list, process_title, process_body):
     for query_tokenized in query_set:
 
         qd_list = sorted(qd_dict_list[counter])
+        
         qd_idx = [order_list.index(item) for item in qd_list]
 
         if process_title:
             doc_bm25_title = doc_process_bm25(list(itemgetter(*qd_idx)(titles)))
+            # total_size_title += len(list(itemgetter(*qd_idx)(titles)))
+
             average_idf_title = sum(map(lambda k: float(doc_bm25_title.idf[k]), doc_bm25_title.idf.keys())) / len(doc_bm25_title.idf.keys())
             tmp_score_title = doc_bm25_title.get_scores(query_tokenized, average_idf_title)
             scores_title.append(tmp_score_title)
+            total_size_title += len(tmp_score_title)
 
         if process_body:
             doc_bm25_body = doc_process_bm25(list(itemgetter(*qd_idx)(docs)))
+            # total_size_body += len(list(itemgetter(*qd_idx)(docs)))
+
             average_idf_body = sum(map(lambda k: float(doc_bm25_body.idf[k]), doc_bm25_body.idf.keys())) / len(doc_bm25_body.idf.keys())
             tmp_score_body = doc_bm25_body.get_scores(query_tokenized, average_idf_body)
             scores_body.append(tmp_score_body)
+            total_size_body += len(tmp_score_body)
 
         print("[" + str(counter) + "]: "  + str(query_tokenized))
         counter += 1
-
+    
+    print("Total_size_title: " + str(total_size_title))
+    print("Total_size_body: " + str(total_size_body))
     return scores_title, scores_body
 
 if __name__ == "__main__":
@@ -122,25 +133,29 @@ if __name__ == "__main__":
 
     final_result_title, final_result_body = main(qry_set, qd_dict, order_list, process_title, process_body)
 
+    c = 0
     if process_title and process_body:
 
         for qf in final_result_title:
             result = ""
             for i in range(len(qf)):
                 result += str(qf[i]) + " "
+                c += 1
             result += "\n"
             fw_title.write(result)
+
         fw_title.close()
         
-        print("BM_25 title finished....")
+        print("BM_25 title finished.... total_count_title: " + str(c))
 
+        c = 0
         for qf in final_result_body:
             result = ""
             for i in range(len(qf)):
                 result += str(qf[i]) + " "
+                c += 1
             result += "\n"
             fw_body.write(result)
-            
-        fw_body.close()
 
-        print("BM_25 body finished....")
+        fw_body.close()
+        print("BM_25 body finished....total_count_body: " + str(c))
