@@ -1,8 +1,10 @@
 import os
 import gensim
+import nltk
+import pickle
+from operator import itemgetter
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-import nltk
 from nltk.tokenize import RegexpTokenizer
 from gensim.summarization import bm25
 
@@ -11,7 +13,7 @@ def docs_process(data_file, title_s=False, body_s=False):
     bodies = []
     counter = 0
     if os.path.isdir(data_file):
-        dir = os.listdir(data_file)
+        dir = sorted(os.listdir(data_file))
         for fname in dir:
             fp = open(data_file + "/" + fname, "r")
             tmp_doc = fp.read().split("Body:")
@@ -48,7 +50,7 @@ def docs_process(data_file, title_s=False, body_s=False):
                 doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
                 bodies.append(doc_body)
 
-    return titles, bodies
+    return titles, bodies, dir
 
 
 def query_process(file_dir):
@@ -70,44 +72,75 @@ def doc_process_bm25(raw_docs):
     bm25Model = bm25.BM25(gen_docs)
     return bm25Model
 
-def main(query_set, doc_bm25, average_idf):
+def main(query_set, qc_dict, order_list, process_title, process_body):
     counter = 0
-    scores = []
+    scores_title = []
+    scores_body = []
+    qd_dict_list = list(qd_dict.values())
+
     for query_tokenized in query_set:
-        tmp_score = doc_bm25.get_scores(query_tokenized, average_idf)
-        scores.append(tmp_score)
+
+        qd_list = sorted(qd_dict_list[counter])
+        qd_idx = [order_list.index(item) for item in qd_list]
+
+        if process_title:
+            doc_bm25_title = doc_process_bm25(list(itemgetter(*qd_idx)(titles)))
+            average_idf_title = sum(map(lambda k: float(doc_bm25_title.idf[k]), doc_bm25_title.idf.keys())) / len(doc_bm25_title.idf.keys())
+            tmp_score_title = doc_bm25.get_scores(query_tokenized, average_idf_title)
+            scores_title.append(tmp_score_title)
+
+        if process_body:
+            doc_bm25_body = doc_process_bm25(list(itemgetter(*qd_idx)(docs)))
+            average_idf_body = sum(map(lambda k: float(doc_bm25_body.idf[k]), doc_bm25_body.idf.keys())) / len(doc_bm25_body.idf.keys())
+            tmp_score_body = doc_bm25.get_scores(query_tokenized, average_idf_body)
+            scores_body.append(tmp_score_body)
+
         print("[" + str(counter) + "]: "  + str(query_tokenized))
         counter += 1
-    return scores
+
+    return scores_title, scores_body
 
 if __name__ == "__main__":
 
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer(r'\w+')
+
+    with open("qd_dict.bin", "rb") as fqd:
+        qd_dict = pickle.load(fqd)
     
-    doc_dir = "docs"
+    doc_dir = "docs_new_small"
     qry_file = "title-queries.301-450"
 
-    fw = open("BM25_result.log", "w")
-    search_in_title = True
-    search_in_body = False
+    fw_title = open("BM25_result_title.log", "w")
+    fw_body = open("BM25_result_body.log", "w")
+
+    process_title = True
+    process_body = True
 
     qry_set = query_process(qry_file)
-    titles, docs = docs_process(doc_dir, True, True)
+    titles, docs, order_list = docs_process(doc_dir, process_title, process_body)
 
-    if search_in_title:
-        doc_bm25 = doc_process_bm25(titles)
-    else:
-        doc_bm25 = doc_process_bm25(docs)
+    final_result_title, final_result_body = main(qry_set, qd_dict, order_list, process_title, process_body)
 
-    average_idf = sum(map(lambda k: float(doc_bm25.idf[k]), doc_bm25.idf.keys())) / len(doc_bm25.idf.keys())
-    final_result = main(qry_set, doc_bm25, average_idf)
+    if generate_title and generate_body:
 
-    for qf in final_result:
-        result = ""
-        for i in range(len(qf)):
-            result += str(qf[i]) + " "
-        result += "\n"
-        fw.write(result)
-    
-    fw.close()
+        for qf in final_result_title:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_title.write(result)
+        fw_title.close()
+        
+        print("BM_25 title finished....")
+
+        for qf in final_result_body:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_body.write(result)
+            
+        fw_body.close()
+
+        print("BM_25 body finished....")

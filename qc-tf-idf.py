@@ -1,21 +1,17 @@
 import os
 import gensim
 import nltk
+import pickle
+from operator import itemgetter
 from nltk.tokenize import word_tokenize
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 
 
 def single_query_docs_tf_idf(query, corpus, dictionary, tf_idf):
-    # handle the incoming query
-    # query_doc = [w.lower() for w in word_tokenize(query)]
-    # print(query_doc)
     query_doc_bow = dictionary.doc2bow(query)
-    # print(query_doc_bow)
     query_doc_tf_idf = tf_idf[query_doc_bow]
-    # print(query_doc_tf_idf)
     sims = gensim.similarities.Similarity('.', tf_idf[corpus], num_features=len(dictionary))
-
     return sims[query_doc_tf_idf]
 
 
@@ -23,8 +19,9 @@ def docs_process(data_file, title_s, body_s):
     titles = []
     bodies = []
     counter = 0
+
     if os.path.isdir(data_file):
-        dir = os.listdir(data_file)
+        dir = sorted(os.listdir(data_file))
         for fname in dir:
             fp = open(data_file + "/" + fname, "r")
             tmp_doc = fp.read().split("Body:")
@@ -61,7 +58,7 @@ def docs_process(data_file, title_s, body_s):
                 doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
                 bodies.append(doc_body)
 
-    return titles, bodies
+    return titles, bodies, dir
 
 
 def query_process(file_dir):
@@ -83,15 +80,32 @@ def doc_process_tf_idf(raw_docs):
     tf_idf = gensim.models.TfidfModel(corpus)
     return corpus, dictionary, tf_idf
 
-def main(query_set, corpus, dictionary, tf_idf):
-    result_set=[]
+def main(query_set, qd_dict, order_list, titles, docs, generate_title=True, generate_body=False):
+    result_set_title = []
+    result_set_body = []
     counter = 0
-    for qry in query_set:
-        result = single_query_docs_tf_idf(qry, corpus, dictionary, tf_idf)
-        result_set.append(result)
-        print("[" + str(counter) + "]: "  + str(qry))
+    qd_dict_list = list(qd_dict.values())
+
+    for iter in range(len(query_set)):
+
+        qd_list = sorted(qd_dict_list[iter])
+        qd_idx = [order_list.index(item) for item in qd_list]
+ 
+        if generate_title:
+            corpus_title, dictionary_title, tf_idf_title = doc_process_tf_idf(list(itemgetter(*qd_idx)(titles)))
+            result_title = single_query_docs_tf_idf(query_set[iter], corpus_title, dictionary_title, tf_idf_title)
+            result_set_title.append(result_title)
+
+        if generate_body:
+            corpus_body, dictionary_body, tf_idf_body = doc_process_tf_idf(list(itemgetter(*qd_idx)(docs)))
+            result_body = single_query_docs_tf_idf(query_set[iter], corpus_body, dictionary_body, tf_idf_body)
+            result_set_body.append(result_body)
+
+        print("[" + str(counter) + "]: "  + str(query_set[iter]))
         counter += 1
-    return result_set
+
+    return result_set_title, result_set_body
+
 
 if __name__ == "__main__":
 
@@ -100,28 +114,100 @@ if __name__ == "__main__":
     nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
 
-    fw = open("TF-IDF_result.log", "w")
-    search_in_title = True
-    search_in_body = False
+    generate_title = True
+    generate_body = True
 
-    doc_dir = "docs"
+    recover = False
+
+    with open("qd_dict.bin", "rb") as fqd:
+        qd_dict = pickle.load(fqd)
+    
+    if generate_title:
+        fw_title = open("TF-IDF_result_title.log", "w")
+
+    if generate_body:
+        fw_body = open("TF-IDF_result_body.log", "w")
+
+    doc_dir = "docs_new_small" # test_small
     qry_file = "title-queries.301-450"
     
     qry_set = query_process(qry_file)
-    titles, docs = docs_process(doc_dir, title_s=True, body_s=False)
 
-    if search_in_title:
-        corpus, dictionary, tf_idf = doc_process_tf_idf(titles)
+    if recover:
+        f_docs = open("docs_dump", "rb")
+        docs = pickle.load(f_docs)
+
+        f_titles = open("titles_dump", "rb")
+        titles = pickle.load(f_titles)
+
+        f_order_list = open("order_list_dump", "rb")
+        order_list = pickle.load(f_order_list)
     else:
-        corpus, dictionary, tf_idf = doc_process_tf_idf(docs)
+        if generate_title and generate_body:
+            titles, docs, order_list = docs_process(doc_dir, title_s=generate_title, body_s=generate_body)
+
+        if generate_title and not generate_body:
+            titles, _, order_list = docs_process(doc_dir, title_s=generate_title, body_s=generate_body)
+        
+        if generate_body and not generate_title:
+            _, docs, order_list = docs_process(doc_dir, title_s=generate_title, body_s=generate_body)
+
+        # backup docs during readin process
+        if generate_body:
+            f_docs = open("docs_dump", "wb")
+            pickle.dump(docs, f_docs)
+            f_docs.close()
+        
+        if generate_title:
+            f_titles = open("titles_dump", "wb")
+            pickle.dump(titles, f_titles)
+            f_titles.close()
+
+        f_order_list = open("order_list_dump", "wb")
+        pickle.dump(order_list, f_order_list)
+        f_order_list.close()
     
-    final_result = main(qry_set, corpus, dictionary, tf_idf)
-    
-    for qf in final_result:
-        result = ""
-        for i in range(len(qf)):
-            result += str(qf[i]) + " "
-        result += "\n"
-        fw.write(result)
-    
-    fw.close()
+    if generate_title and generate_body:
+        final_result_title, final_result_body = main(qry_set, qd_dict, order_list, titles, docs, generate_title=True, generate_body=True)
+
+        for qf in final_result_title:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_title.write(result)
+        fw_title.close()
+        print("[1/2] title part finished")
+
+        for qf in final_result_body:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_body.write(result)
+        fw_body.close()
+        print("[2/2] body part finished")
+
+    if generate_title and not generate_body:
+        final_result_title, _ = main(qry_set, qd_dict, order_list, titles, docs, generate_title=True, generate_body=False)
+
+        for qf in final_result_title:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_body.write(result)
+        fw_body.close()
+        print("[1/1] title part finished")
+
+    if generate_body and not generate_title:
+        _ , final_result_body = main(qry_set, qd_dict, order_list, titles, docs, generate_title=False, generate_body=True)
+
+        for qf in final_result_body:
+            result = ""
+            for i in range(len(qf)):
+                result += str(qf[i]) + " "
+            result += "\n"
+            fw_body.write(result)
+        fw_body.close()
+        print("[1/1] body part finished")

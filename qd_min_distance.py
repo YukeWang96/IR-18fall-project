@@ -1,5 +1,6 @@
 # coding = "UTF-8"
 import os
+import pickle
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
@@ -21,7 +22,7 @@ def docs_process(data_file, title_s=False, body_s=False):
     bodies = []
     counter = 0
     if os.path.isdir(data_file):
-        dir = os.listdir(data_file)
+        dir = sorted(os.listdir(data_file))
         for fname in dir:
             fp = open(data_file + "/" + fname, "r")
             tmp_doc = fp.read().split("Body:")
@@ -30,12 +31,16 @@ def docs_process(data_file, title_s=False, body_s=False):
                 doc_title = tmp_doc[0].replace("Title:", "").replace("\n", "")
                 gen_docs = [w.lower() for w in tokenizer.tokenize(doc_title) if not w in stop_words]
                 titles.append(gen_docs)
-
+                
             if len(tmp_doc) >= 2:
                 if body_s:
                     doc_body = tmp_doc[1].replace("\n", "")
                     gen_docs = [w.lower() for w in tokenizer.tokenize(doc_body) if not w in stop_words]
                     bodies.append(gen_docs)
+            else:
+                if body_s:
+                    doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
+                    bodies.append(doc_body)
 
             counter += 1
             print(counter)
@@ -51,8 +56,12 @@ def docs_process(data_file, title_s=False, body_s=False):
             if body_s:
                 doc_body = tmp_doc[1].replace("\n", "")
                 bodies.append(doc_body)
+        else:
+            if body_s:
+                doc_body = tmp_doc[0].replace("Title:", "").replace("\n", "")
+                bodies.append(doc_body)
 
-    return titles, bodies
+    return titles, bodies, dir
 
 def get_min_interval_between_list(temp_list_1, temp_list_2):
     
@@ -108,31 +117,43 @@ def distance(tokenized_query, tokenized_docs_sets):
     return min_dist
 
 
-def main(query_set, doc_set, min_dist_global=[]):
+def main(qry_set, doc_set, qd_dir, order_list):
+
     counter = 0
+    qd_dict_list = list(qd_dict.values())
+    min_dist_global = []
+
     for qr in query_set:
-        tmp_min = distance(qr, doc_set)
+
+        qd_list = sorted(qd_dict_list[counter])
+        qd_idx = [order_list.index(item) for item in qd_list]
+
+        tmp_min = distance(qr, list(itemgetter(*qd_idx)(doc_set))
         min_dist_global.append(tmp_min)
-        print("qry: " + str(counter)) 
+        
+        print("qry: " + str(counter) + str(qr)) 
         counter += 1
+    
+    return min_dist_global
 
 if __name__ == "__main__":
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer(r'\w+')
 
     fw_min = open("min_dist.log", "w")
-    # fw_max = open("max_dist.log", "w")
 
-    doc_dir = "docs" # "test_small" # "docs"
+    doc_dir = "docs_new_small"  
     qry_file = "title-queries.301-450"
 
     qry_set = query_process(qry_file)
-    _, docs = docs_process(doc_dir, title_s=False, body_s=True)
+    _, docs, order_list = docs_process(doc_dir, title_s=False, body_s=True)
+
+    with open("qd_dict.bin", "rb") as fqd:
+        qd_dict = pickle.load(fqd)
 
     min_dist_global = []
-    max_dist_global = []
 
-    main(qry_set, docs, min_dist_global)
+    min_dist_global = main(qry_set, docs, qd_dir, order_list)
 
     total_line = len(min_dist_global)
     total_width = len(min_dist_global[0])
@@ -144,9 +165,3 @@ if __name__ == "__main__":
             result += str(min_dist_global[iter][i]) + " "
         result += "\n"
         fw_min.write(result)
-
-        # result = ""
-        # for i in range(total_width):
-        #     result += str(max_dist_global[iter][i]) + " "
-        # result += "\n"
-        # fw_max.write(result)
