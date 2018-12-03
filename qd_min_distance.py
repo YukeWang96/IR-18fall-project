@@ -155,12 +155,12 @@ if __name__ == "__main__":
 
     min_dist_global = main(qry_set, docs, qd_dict, order_list)
 
-    total_line = len(min_dist_global)
+    # total_line = len(min_dist_global)
     # total_width = len(min_dist_global[0])
 
-    for iter in range(total_line):
+    for iter in range(len(min_dist_global)):
         result = ""
-        for i in range(len(total_line[iter])):
+        for i in range(len(min_dist_global[iter])):
             result += str(min_dist_global[iter][i]) + " "
         result += "\n"
         fw_min.write(result)

@@ -14,7 +14,6 @@ def single_query_docs_tf_idf(query, corpus, dictionary, tf_idf):
     sims = gensim.similarities.Similarity('.', tf_idf[corpus], num_features=len(dictionary))
     return sims[query_doc_tf_idf]
 
-
 def docs_process(data_file, title_s, body_s):
     titles = []
     bodies = []
@@ -71,8 +70,6 @@ def query_process(file_dir):
         query_set.append(tmp)
     return query_set
 
-
-# raw_docs can be titles or bodies
 def doc_process_tf_idf(raw_docs):
     gen_docs = [[w.lower() for w in tokenizer.tokenize(text) if not w in stop_words] for text in raw_docs]
     dictionary = gensim.corpora.Dictionary(gen_docs)
@@ -117,7 +114,7 @@ if __name__ == "__main__":
     generate_title = True
     generate_body = True
 
-    recover = False
+    recover = True
 
     with open("qd_dict.bin", "rb") as fqd:
         qd_dict = pickle.load(fqd)
@@ -128,7 +125,7 @@ if __name__ == "__main__":
     if generate_body:
         fw_body = open("TF-IDF_result_body.log", "w")
 
-    doc_dir = "docs_new_small" # test_small
+    doc_dir = "docs_new_small"
     qry_file = "title-queries.301-450"
     
     qry_set = query_process(qry_file)
@@ -177,7 +174,7 @@ if __name__ == "__main__":
             result += "\n"
             fw_title.write(result)
         fw_title.close()
-        print("[1/2] title part finished")
+        print("TF-IDF [1/2] title part finished")
 
         for qf in final_result_body:
             result = ""
@@ -186,7 +183,7 @@ if __name__ == "__main__":
             result += "\n"
             fw_body.write(result)
         fw_body.close()
-        print("[2/2] body part finished")
+        print("TF-IDF [2/2] body part finished")
 
     if generate_title and not generate_body:
         final_result_title, _ = main(qry_set, qd_dict, order_list, titles, docs, generate_title=True, generate_body=False)
