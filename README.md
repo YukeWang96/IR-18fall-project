@@ -1,5 +1,6 @@
 # IR-18fall-project
-## This directory is for feature generation of tf-idf and bm25 for both article titles and bodies.
+
+This is the code repository for feature generation of tf-idf and bm25 for both article titles and bodies.
 
 # Data file generating
 + Using 'parsing_xml.py' to generate the seperate files for each articles in `trec-disk-4-5.xml`, use the `DOCNO` as the files' name, and inside each file, it contain the title and body part of each article.
